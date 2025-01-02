@@ -1,0 +1,78 @@
+
+import socket
+import threading
+
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server.bind(("localhost", 1234))
+server.listen(5)
+
+clients = []
+stop_server = threading.Event()
+id_current_client=0
+clients_lock= threading.Lock()  
+
+def write_exit_command():
+    while not stop_server.is_set():
+        message = input()
+        if message == 'exit':
+            print("Server is shutting down...")
+            stop_server.set()
+            
+            for client in clients:
+                client.send('the server is closing'.encode('ascii'))
+                client.close()
+            server.close()
+            return
+
+def handle_one_client(client):
+    while not stop_server.is_set():
+        try:
+            message = client.recv(1024).decode('ascii')
+            if message == "exit":
+                print("A client requested to disconnect.")
+                client.close()
+                clients.remove(client)
+                break
+            else:
+                broadcast_message(message)
+        except:
+            break
+
+def broadcast_message(message):
+    
+    for client in clients:
+        try:
+            print("trimis mesaj")
+            client.send(message.encode('ascii'))
+        except:
+            print(clients)
+            print("eroare")
+            #clients.remove(client)
+
+def connect_with_client():
+    while not stop_server.is_set():
+        try:
+            global id_current_client
+            client, client_address= server.accept()
+            id_current_client+=1
+            
+
+            client.send('the client should have a nickname'.encode('ascii'))
+            client_nickname=client.recv(1024).decode('ascii')
+            client.send('the client should have a password'.encode('ascii'))
+            client_password=client.recv(1024).decode('ascii')
+            
+            clients.append(client)
+            client.send('Connected to the server!'.encode('ascii'))
+    
+            broadcast_message(f'client {id_current_client} with the nickname {client_nickname} has joined'.encode('ascii'))
+            
+            
+        
+
+            new_thread= threading.Thread(target=handle_one_client, args=(client,))
+            new_thread.start()
+        except:
+            break
+
+

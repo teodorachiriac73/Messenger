@@ -1,0 +1,13 @@
+[2025-01-02 02:04:03] client 1 with the nickname teo has joined
+[2025-01-02 02:04:03] Connected to the server!
+[2025-01-02 02:04:08] active users: ['teo']
+[2025-01-02 02:04:10] teo: eu vorbesc singura
+[2025-01-02 02:04:10] teo: eu vorbesc singura
+[2025-01-02 02:04:13] active users: ['teo']
+[2025-01-02 02:04:18] active users: ['teo']
+[2025-01-02 02:04:21] client 2 with the nickname lul has joined
+[2025-01-02 02:04:23] active users: ['teo', 'lul']
+[2025-01-02 02:04:24] lul: hei?
+[2025-01-02 02:04:28] active users: ['teo', 'lul']
+[2025-01-02 02:04:28] teo: bunaa
+[2025-01-02 02:04:28] teo: bunaa
