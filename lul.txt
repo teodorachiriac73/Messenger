@@ -1,8 +1,0 @@
-[2025-01-02 02:04:21] client 2 with the nickname lul has joined
-[2025-01-02 02:04:21] Connected to the server!
-[2025-01-02 02:04:23] active users: ['teo', 'lul']
-[2025-01-02 02:04:24] lul: hei?
-[2025-01-02 02:04:24] lul: hei?
-[2025-01-02 02:04:28] active users: ['teo', 'lul']
-[2025-01-02 02:04:28] teo: bunaa
-[2025-01-02 02:04:33] active users: ['lul']

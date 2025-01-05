@@ -42,7 +42,9 @@ def handle_one_client(client):
                 print("A client requested to disconnect.")
 
                 client.close()
-                info_about_clients[clients.index(client)]['active']=False   
+                for info_client in info_about_clients:
+                    if info_client['client_socket']==client:
+                        info_client['active']=False   
                 #clients.remove(client)
                 break
             else:
@@ -71,21 +73,64 @@ def connect_with_client():
         try:
             global id_current_client
             client, client_address= server.accept()
-            id_current_client+=1
             
+            # client.send('the client should have a nickname'.encode('ascii'))
+            # client_nickname=client.recv(1024).decode('ascii')
+            # client.send('the client should have a password'.encode('ascii'))
+            # client_password=client.recv(1024).decode('ascii')
 
-            client.send('the client should have a nickname'.encode('ascii'))
-            client_nickname=client.recv(1024).decode('ascii')
-            client.send('the client should have a password'.encode('ascii'))
-            client_password=client.recv(1024).decode('ascii')
+        
+            client_has_logged_in=False
+            existing_client=False
+            while(client_has_logged_in==False):
+                client_nickname=client.recv(1024).decode('ascii')
+                client_password=client.recv(1024).decode('ascii')
+                print(client_nickname,client_password )
+                
 
-            clients.append(client)
-            info_about_clients.append({'client_socket':client,'id':id_current_client,'active':True, 'nickname':client_nickname, 'password':client_password})
+                for info_client in info_about_clients:
+                    if info_client['nickname']==client_nickname and info_client['password']==client_password:
+                        if info_client['active']==True:
+                            client.send('already connected!'.encode('ascii'))
+                            client.close()
+                            return
+                        existing_client=True
+                        for one_client in clients:
+                            if one_client==info_client['client_socket']:
+                                one_client= client #actualizam socketul in caz de reconectare
+                                break
+                        info_client['client_socket'] = client
+                        info_client['active']=True
+                        client_has_logged_in=True
+                        client.send('login:successfull'.encode('ascii'))
+                        break
+                    elif info_client['nickname']==client_nickname:
+                        existing_client=True
+                        client.send('login:failed'.encode('ascii'))
+                        break
 
-            broadcast_message(f'client {id_current_client} with the nickname {client_nickname} has joined')
+                if existing_client==False:
+                    clients.append(client)
+                    id_current_client+=1
+                    info_about_clients.append({
+                        'client_socket':client,
+                        'id':id_current_client,
+                        'active':True, 
+                        'nickname':client_nickname, 
+                        'password':client_password
+                    })
+                    
+                    client.send('login:successfull'.encode('ascii'))
+                    client_has_logged_in=True
+
+            for info_abt_one_client in info_about_clients:
+                if info_abt_one_client['client_socket']==client:
+                    id_client= info_abt_one_client['id']
+                    break
+            broadcast_message(f'client {id_client} with the nickname {client_nickname} has joined')
             
-            print(f'Connected to client {id_current_client} from his address {client_address}')
-            print(f'client {id_current_client} has the nickname {client_nickname}')
+            print(f'Connected to client {id_client} from his address {client_address}')
+            print(f'client {id_client} has the nickname {client_nickname}')
             client.send('Connected to the server!'.encode('ascii'))
     
 
