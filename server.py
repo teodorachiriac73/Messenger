@@ -21,6 +21,7 @@ def return_active_clients():
 def write_exit_command():
     while not stop_server.is_set():
         message = input()
+
         if message == 'exit':
             print("Server is shutting down...")
             
@@ -38,6 +39,8 @@ def handle_one_client(client):
     while not stop_server.is_set():
         try:
             message = client.recv(1024).decode('ascii')
+            if not message:  
+                raise Exception("Empty message, probably client disconnected unexpectedly")
             if message == "exit":
                 print("A client requested to disconnect.")
 
@@ -68,11 +71,11 @@ def broadcast_active_users():
         broadcast_message(f'active users: {active_users}')
         stop_server.wait(5)
 
-def connect_with_client():
+def authenticate_client_then_start(client):
     while not stop_server.is_set():
         try:
             global id_current_client
-            client, client_address= server.accept()
+            client_address = client.getpeername()
             
             # client.send('the client should have a nickname'.encode('ascii'))
             # client_nickname=client.recv(1024).decode('ascii')
@@ -82,6 +85,7 @@ def connect_with_client():
         
             client_has_logged_in=False
             existing_client=False
+            already_connected=False
             while(client_has_logged_in==False):
                 client_nickname=client.recv(1024).decode('ascii')
                 client_password=client.recv(1024).decode('ascii')
@@ -92,8 +96,9 @@ def connect_with_client():
                     if info_client['nickname']==client_nickname and info_client['password']==client_password:
                         if info_client['active']==True:
                             client.send('already connected!'.encode('ascii'))
+                            already_connected=True
                             client.close()
-                            return
+                            break
                         existing_client=True
                         for one_client in clients:
                             if one_client==info_client['client_socket']:
@@ -108,7 +113,10 @@ def connect_with_client():
                         existing_client=True
                         client.send('login:failed'.encode('ascii'))
                         break
-
+                    
+                if already_connected==True: 
+                    break
+                
                 if existing_client==False:
                     clients.append(client)
                     id_current_client+=1
@@ -123,21 +131,38 @@ def connect_with_client():
                     client.send('login:successfull'.encode('ascii'))
                     client_has_logged_in=True
 
-            for info_abt_one_client in info_about_clients:
-                if info_abt_one_client['client_socket']==client:
-                    id_client= info_abt_one_client['id']
-                    break
-            broadcast_message(f'client {id_client} with the nickname {client_nickname} has joined')
-            
-            print(f'Connected to client {id_client} from his address {client_address}')
-            print(f'client {id_client} has the nickname {client_nickname}')
-            client.send('Connected to the server!'.encode('ascii'))
-    
+            if client_has_logged_in:
+                for info_abt_one_client in info_about_clients:
+                    if info_abt_one_client['client_socket']==client:
+                        id_client= info_abt_one_client['id']
+                        break
+                broadcast_message(f'client {id_client} with the nickname {client_nickname} has joined')
+                
+                print(f'Connected to client {id_client} from his address {client_address}')
+                print(f'client {id_client} has the nickname {client_nickname}')
+                client.send('Connected to the server!'.encode('ascii'))
+        
 
-            new_thread= threading.Thread(target=handle_one_client, args=(client,))
-            new_thread.start()
+                handle_one_client(client)
         except:
             break
+
+
+
+def connect_with_one_client():
+    while not stop_server.is_set():
+        try:
+            client,client_address= server.accept()
+
+            connect_client_thread= threading.Thread(target=authenticate_client_then_start, args=(client,))
+            connect_client_thread.start()
+
+        except Exception as e:
+            if stop_server.is_set():
+                break
+            print("Error at connecting with client",e, client_address)
+            break
+
 
 write_thread = threading.Thread(target=write_exit_command)
 write_thread.start()
@@ -146,4 +171,4 @@ active_users= threading.Thread(target= broadcast_active_users)
 active_users.start()
 
 print("Server is listening")
-connect_with_client()
+connect_with_one_client()
