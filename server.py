@@ -29,7 +29,7 @@ def return_active_clients():
             active_clients.append(info_client)
     return active_clients
 
-def write_exit_command():
+def write_command():
     while not stop_server.is_set():
         message = input()
        
@@ -39,7 +39,7 @@ def write_exit_command():
             
             for active_client in return_active_clients():
                 client=active_client['client_socket']
-                client.send('the server is closing'.encode('ascii'))
+                client.send('the server is closing'.encode('utf-8'))
                 client.close()
             info_about_clients.clear()
             delete_client_folder()
@@ -57,7 +57,7 @@ def write_exit_command():
 def handle_one_client(client):
     while not stop_server.is_set():
         try:
-            message = client.recv(1024).decode('ascii')
+            message = client.recv(1024).decode('utf-8')
             if not message:  
                 raise Exception("Empty message, probably client disconnected unexpectedly")
             if message == "exit":
@@ -88,7 +88,7 @@ def broadcast_message(message):
     active_users=return_active_clients()
     for one_client in active_users:
             try:
-                one_client['client_socket'].send(message.encode('ascii'))
+                one_client['client_socket'].send(message.encode('utf-8'))
             except:
                 print("eroare trimitere mesaj catre client",one_client)
 
@@ -98,13 +98,13 @@ def broadcast_active_users():
         active_users=return_active_clients()
         active_users = [user['nickname'] for user in active_users if user['active']==True]  
         broadcast_message(f'active users: {active_users}')
-        stop_server.wait(2)
+        stop_server.wait(1)
 
 def send_direct_message_to_user(from_client,to_client,message):
     for one_client in info_about_clients:
         if one_client['nickname']==to_client:
             try:
-                one_client['client_socket'].send(f'{message}'.encode('ascii'))
+                one_client['client_socket'].send(f'{message}'.encode('utf-8'))
             except:
                 print("eroare trimitere mesaj catre client",one_client)
                 break
@@ -121,15 +121,15 @@ def authenticate_client_then_start(client):
             existing_client=False
             already_connected=False
             while(client_has_logged_in==False):
-                client_nickname=client.recv(1024).decode('ascii')
-                client_password=client.recv(1024).decode('ascii')
+                client_nickname=client.recv(1024).decode('utf-8')
+                client_password=client.recv(1024).decode('utf-8')
                 print(client_nickname,client_password )
                 
 
                 for info_client in info_about_clients:
                     if info_client['nickname']==client_nickname and info_client['password']==client_password:
                         if info_client['active']==True:
-                            client.send('already connected!'.encode('ascii'))
+                            client.send('already connected!'.encode('utf-8'))
                             already_connected=True
                             client.close()
                             break
@@ -141,11 +141,11 @@ def authenticate_client_then_start(client):
                         info_client['client_socket'] = client
                         info_client['active']=True
                         client_has_logged_in=True
-                        client.send('login:successfull'.encode('ascii'))
+                        client.send('login:successfull'.encode('utf-8'))
                         break
                     elif info_client['nickname']==client_nickname:
                         existing_client=True
-                        client.send('login:failed'.encode('ascii'))
+                        client.send('login:failed'.encode('utf-8'))
                         break
                     
                 if already_connected==True: 
@@ -162,7 +162,7 @@ def authenticate_client_then_start(client):
                         'password':client_password
                     })
                     
-                    client.send('login:successfull'.encode('ascii'))
+                    client.send('login:successfull'.encode('utf-8'))
                     client_has_logged_in=True
 
             if client_has_logged_in:
@@ -174,7 +174,7 @@ def authenticate_client_then_start(client):
                 
                 print(f'Connected to client {id_client} from his address {client_address}')
                 print(f'client {id_client} has the nickname {client_nickname}')
-                #client.send('!!!Connected to the server!'.encode('ascii'))
+                #client.send('!!!Connected to the server!'.encode('utf-8'))
         
                 
                 handle_one_client(client)
@@ -198,7 +198,7 @@ def connect_with_one_client():
             break
 
 
-write_thread = threading.Thread(target=write_exit_command)
+write_thread = threading.Thread(target=write_command)
 write_thread.start()
 
 active_users= threading.Thread(target= broadcast_active_users)

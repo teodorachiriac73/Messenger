@@ -16,16 +16,16 @@ client.connect_ex(("localhost", 1234))
 def receive_message_from_srv():
     while not stop_client.is_set():
         try:
-            message = client.recv(1024).decode('ascii')
+            message = client.recv(1024).decode('utf-8')
             if message == 'the server is closing':
-                client.send('exit'.encode('ascii'))
+                client.send('exit'.encode('utf-8'))
                 stop_client.set()
                 tkWindow.quit()
                 client.close()
                 return
             elif message == 'already connected!':
                 status_label.config(text='Status: user already connected', fg='red')
-                client.send('exit'.encode('ascii'))
+                client.send('exit'.encode('utf-8'))
                 stop_client.wait(5)
                 stop_client.set()
                 tkWindow.quit()
@@ -63,8 +63,8 @@ def login():
     nickname = nickname_entry.get()
     password = password_entry.get()
     try:
-        client.send(nickname.encode('ascii'))
-        client.send(password.encode('ascii'))
+        client.send(nickname.encode('utf-8'))
+        client.send(password.encode('utf-8'))
     except Exception as e:
         print('Error at login', e)
 
@@ -97,11 +97,11 @@ def send_message():
     if message.strip():
         new_message = f'{nickname}: {message}'
         log_message(new_message)
-        client.send(new_message.encode('ascii'))
+        client.send(new_message.encode('utf-8'))
         chat_entry.delete(0, tk.END)
 
 def close_app():
-    client.send('exit'.encode('ascii'))
+    client.send('exit'.encode('utf-8'))
     stop_client.set()
     client.close()
     tkWindow.destroy()

@@ -2,12 +2,15 @@ import socket
 import threading
 import tkinter as tk
 import os 
-from datetime import datetime
-
-from file_manipulation import create_client_folder
-import ssl
 import ssl
 import socket
+
+from datetime import datetime
+from tkinter import PhotoImage
+from file_manipulation import create_client_folder
+
+def on_emoji_click(emoji_char, message_entry):
+    message_entry.insert(tk.END, emoji_char)
 
 def create_ssl_client_socket():
     
@@ -44,6 +47,7 @@ def display_message_in_direct_chat(messages_display, message):
     messages_display.insert(tk.END, message + '\n')
     messages_display.config(state='disabled')
     messages_display.see(tk.END)
+
 def on_client_click(client, another_client):
     if another_client not in direct_message_windows_dictionary:
         direct_message_window = tk.Toplevel(chat_window)
@@ -58,23 +62,32 @@ def on_client_click(client, another_client):
         
         direct_message_window.grid_rowconfigure(0, weight=1)  # o coloana=messages display, care se poate extinde si 2 randuri 
         direct_message_window.grid_rowconfigure(1, weight=0) 
+        direct_message_window.grid_rowconfigure(2, weight=0) 
         direct_message_window.grid_columnconfigure(0, weight=1) 
         def send_private_message():
             message = message_entry.get()
             if message.strip():
                 command = f"message:from:{nickname}:to:{another_client}:{message.strip()}"
                 try:
-                    client.send(command.encode('ascii'))
+                    client.send(command.encode('utf-8'))
                     display_message_in_direct_chat(messages_display, f"You: {message.strip()}")
                 except Exception as e:
                     display_message_in_direct_chat(messages_display, "Error: Failed to send message.")
                 message_entry.delete(0, tk.END)
 
+        
         message_entry = tk.Entry(direct_message_window)
         message_entry.grid(row=1, column=0, padx=10, pady=5, sticky='ew')
 
+        emoji_list=tk.Frame(direct_message_window)
+        emoji_list.grid(row=2, column=0, padx=10, pady=5, sticky='ew')
+        emojis = ["🙂", "😊", "😂", "😎", "❤️", "👍", "😢", "😡"]
+        for emoji in emojis:
+            emoji_button = tk.Button(emoji_list, text=emoji, font=("Segoe UI Emoji", 14),
+                                 command=lambda e=emoji: on_emoji_click(e, message_entry))
+            emoji_button.pack(side=tk.LEFT, padx=5, pady=5)
         send_button = tk.Button(direct_message_window, text="Send", command=send_private_message)
-        send_button.grid(row=2, column=0, padx=10, pady=5, sticky='ew')
+        send_button.grid(row=3, column=0, padx=10, pady=5, sticky='ew')
 
         def close_direct_message_window():
             del direct_message_windows_dictionary[another_client]
@@ -92,7 +105,7 @@ def send_msg_after_login(enter_msg_entry):
         message = enter_msg_entry.get()
         new_message = f'{nickname}: {message}'
         try:
-            client.send(new_message.encode('ascii'))
+            client.send(new_message.encode('utf-8'))
             enter_msg_entry.delete(0, tk.END)
         except Exception as e:
             print(f"Error occurred at sending message after login: {e}")
@@ -135,7 +148,7 @@ def open_chat_window():
     send_message_frame.grid_columnconfigure(0, weight=1)
 
     def close_chat_window():
-        client.send('exit'.encode('ascii'))
+        client.send('exit'.encode('utf-8'))
         stop_client.set()
         chat_window.quit()
         chat_window.destroy()
@@ -153,7 +166,7 @@ def receive_message_from_srv():
         try:
             if stop_client.is_set():
                 break
-            message = client.recv(1024).decode('ascii')
+            message = client.recv(1024).decode('utf-8')
             if not message:
                 break
 
@@ -250,15 +263,15 @@ def login():
 
     try:
         if not stop_client.is_set():
-            client.send(nickname.encode('ascii'))
-            client.send(password.encode('ascii'))
+            client.send(nickname.encode('utf-8'))
+            client.send(password.encode('utf-8'))
 
     except Exception as e:
         print('Error at login ', e)
         return
 
 def close_app():
-    client.send('exit'.encode('ascii'))
+    client.send('exit'.encode('utf-8'))
     stop_client.set()
     client.close()
     tkWindow.destroy()
@@ -273,6 +286,7 @@ tkWindow = tk.Tk()
 tkWindow.title('Messenger app')
 tkWindow.geometry('400x400')
 tkWindow.resizable(True, True)
+
 
 nickname_label = tk.Label(tkWindow, text='Enter a nickname')
 nickname_label.pack(padx=10, pady=5)
