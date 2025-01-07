@@ -8,8 +8,8 @@ stop_client = threading.Event()
 def log_message(message):
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
-    with open(f"{nickname}.txt", 'a') as file:
-        file.write(f"[{timestamp}] {message}\n")
+    # with open(f"{nickname}.txt", 'a') as file:
+    #     file.write(f"[{timestamp}] {message}\n")
 
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client.connect_ex(("localhost", 1234))

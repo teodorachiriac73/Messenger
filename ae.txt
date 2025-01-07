@@ -1,0 +1,2 @@
+[2025-01-07 04:44:28] client 1 with the nickname ae has joined 
+[2025-01-07 04:44:32] ae: eee

@@ -2,9 +2,9 @@
 import socket
 import threading
 
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.bind(("localhost", 1234))
-server.listen(5)
+from server_configuration import create_server
+
+server = create_server()
 
 clients = []
 info_about_clients=[]
@@ -43,12 +43,14 @@ def handle_one_client(client):
                 raise Exception("Empty message, probably client disconnected unexpectedly")
             if message == "exit":
                 print("A client requested to disconnect.")
-
+                
                 client.close()
                 for info_client in info_about_clients:
                     if info_client['client_socket']==client:
                         info_client['active']=False   
                 #clients.remove(client)
+                
+                broadcast_message(f'one client has left')
                 break
             else:
                 broadcast_message(message)
@@ -136,11 +138,11 @@ def authenticate_client_then_start(client):
                     if info_abt_one_client['client_socket']==client:
                         id_client= info_abt_one_client['id']
                         break
-                broadcast_message(f'client {id_client} with the nickname {client_nickname} has joined')
+                broadcast_message(f'client {id_client} with the nickname {client_nickname} has joined ')
                 
                 print(f'Connected to client {id_client} from his address {client_address}')
                 print(f'client {id_client} has the nickname {client_nickname}')
-                client.send('Connected to the server!'.encode('ascii'))
+                #client.send('!!!Connected to the server!'.encode('ascii'))
         
 
                 handle_one_client(client)
