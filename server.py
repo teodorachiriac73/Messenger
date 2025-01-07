@@ -3,8 +3,19 @@ import socket
 import threading
 
 from server_configuration import create_server
+from file_manipulation import delete_client_folder,return_client_files
+import ssl
 
-server = create_server()
+def create_ssl_server_socket():
+    context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+    context.load_cert_chain(certfile="server_cert.pem", keyfile="server_key.pem")  
+
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind(('localhost', 1234))
+    server_socket.listen(5)
+    return context.wrap_socket(server_socket, server_side=True)
+
+server = create_ssl_server_socket() 
 
 clients = []
 info_about_clients=[]
@@ -21,7 +32,7 @@ def return_active_clients():
 def write_exit_command():
     while not stop_server.is_set():
         message = input()
-
+       
         if message == 'exit':
             print("Server is shutting down...")
             
@@ -31,9 +42,17 @@ def write_exit_command():
                 client.send('the server is closing'.encode('ascii'))
                 client.close()
             info_about_clients.clear()
+            delete_client_folder()
             stop_server.set()
             server.close()
             return
+        else:
+            print(clients)
+            active_clients=return_active_clients()
+            active_clients_nickname = [user['nickname'] for user in active_clients if user['active']==True]
+            if message in active_clients_nickname:
+                return_client_files(message)
+            
 
 def handle_one_client(client):
     while not stop_server.is_set():
@@ -79,7 +98,7 @@ def broadcast_active_users():
         active_users=return_active_clients()
         active_users = [user['nickname'] for user in active_users if user['active']==True]  
         broadcast_message(f'active users: {active_users}')
-        stop_server.wait(5)
+        stop_server.wait(2)
 
 def send_direct_message_to_user(from_client,to_client,message):
     for one_client in info_about_clients:
@@ -96,11 +115,6 @@ def authenticate_client_then_start(client):
         try:
             global id_current_client
             client_address = client.getpeername()
-            
-            # client.send('the client should have a nickname'.encode('ascii'))
-            # client_nickname=client.recv(1024).decode('ascii')
-            # client.send('the client should have a password'.encode('ascii'))
-            # client_password=client.recv(1024).decode('ascii')
 
         
             client_has_logged_in=False

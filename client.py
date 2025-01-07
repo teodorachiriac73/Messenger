@@ -4,7 +4,25 @@ import tkinter as tk
 import os 
 from datetime import datetime
 
-from file_creation import create_client_folder
+from file_manipulation import create_client_folder
+import ssl
+import ssl
+import socket
+
+def create_ssl_client_socket():
+    
+    context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+    context.check_hostname = False  # dezactiveaza verificarea numelui de gazda 
+    context.verify_mode = ssl.CERT_NONE  # nu valideaza certificatul serverului
+    client_socket = context.wrap_socket(socket.socket(socket.AF_INET), server_hostname='localhost')
+    return client_socket
+
+try:
+    client = create_ssl_client_socket()
+    client.connect(('localhost', 1234))  
+except ssl.SSLError as e:
+    print(f"SSL connection error: {e}")
+    client.close()
 
 
 def log_message(message):
@@ -19,25 +37,29 @@ stop_client = threading.Event()
 chat_window = None
 active_clients_frame = None
 messages_display = None
-direct_message_windows_dictionary = {}  # Dicționar pentru ferestrele de chat private
+direct_message_windows_dictionary = {}  
 
 def display_message_in_direct_chat(messages_display, message):
     messages_display.config(state='normal')
     messages_display.insert(tk.END, message + '\n')
     messages_display.config(state='disabled')
     messages_display.see(tk.END)
-
 def on_client_click(client, another_client):
-
     if another_client not in direct_message_windows_dictionary:
         direct_message_window = tk.Toplevel(chat_window)
-        direct_message_window.title("Direct message to " + another_client)
-        direct_message_window.geometry('400x350')
-        direct_message_window.resizable(True, True)
-        messages_display = tk.Text(direct_message_window, state='disabled', wrap='word')
-        messages_display.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        def send_direct_message():
+        direct_message_window.title("Direct message to " + another_client)
+        direct_message_window.geometry('400x400')
+        direct_message_window.resizable(True, True)
+
+        messages_display = tk.Text(direct_message_window, state='disabled', wrap='word')
+        messages_display.grid(row=0, column=0, padx=10, pady=10, sticky='nsew')
+
+        
+        direct_message_window.grid_rowconfigure(0, weight=1)  # o coloana=messages display, care se poate extinde si 2 randuri 
+        direct_message_window.grid_rowconfigure(1, weight=0) 
+        direct_message_window.grid_columnconfigure(0, weight=1) 
+        def send_private_message():
             message = message_entry.get()
             if message.strip():
                 command = f"message:from:{nickname}:to:{another_client}:{message.strip()}"
@@ -49,19 +71,18 @@ def on_client_click(client, another_client):
                 message_entry.delete(0, tk.END)
 
         message_entry = tk.Entry(direct_message_window)
-        message_entry.pack(fill=tk.X, padx=10, pady=5)
+        message_entry.grid(row=1, column=0, padx=10, pady=5, sticky='ew')
 
-        send_button = tk.Button(direct_message_window, text="Send", command=send_direct_message)
-        send_button.pack(pady=10)
+        send_button = tk.Button(direct_message_window, text="Send", command=send_private_message)
+        send_button.grid(row=2, column=0, padx=10, pady=5, sticky='ew')
 
         def close_direct_message_window():
-            
             del direct_message_windows_dictionary[another_client]
             direct_message_window.destroy()
 
         direct_message_window.protocol("WM_DELETE_WINDOW", close_direct_message_window)
 
-        #pun in dict fereastra de chat
+        # Save the window in the dictionary
         direct_message_windows_dictionary[another_client] = direct_message_window
     else:
         direct_message_windows_dictionary[another_client].lift()
@@ -242,8 +263,7 @@ def close_app():
     client.close()
     tkWindow.destroy()
 
-client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client.connect_ex(("localhost", 1234))
+
 
 receive_thread = threading.Thread(target=receive_message_from_srv)
 receive_thread.start()
