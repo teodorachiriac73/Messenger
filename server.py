@@ -52,6 +52,14 @@ def handle_one_client(client):
                 
                 broadcast_message(f'one client has left')
                 break
+            elif message.startswith("message:from:"):
+                from_client=message.split(':')[2]
+                to_client=message.split(':')[4]
+                actual_message=message.split(':')[5]
+                print(from_client,to_client,actual_message)
+                send_direct_message_to_user(from_client,to_client,message)
+                
+
             else:
                 broadcast_message(message)
         except:
@@ -72,6 +80,16 @@ def broadcast_active_users():
         active_users = [user['nickname'] for user in active_users if user['active']==True]  
         broadcast_message(f'active users: {active_users}')
         stop_server.wait(5)
+
+def send_direct_message_to_user(from_client,to_client,message):
+    for one_client in info_about_clients:
+        if one_client['nickname']==to_client:
+            try:
+                one_client['client_socket'].send(f'{message}'.encode('ascii'))
+            except:
+                print("eroare trimitere mesaj catre client",one_client)
+                break
+            break
 
 def authenticate_client_then_start(client):
     while not stop_server.is_set():
@@ -144,7 +162,7 @@ def authenticate_client_then_start(client):
                 print(f'client {id_client} has the nickname {client_nickname}')
                 #client.send('!!!Connected to the server!'.encode('ascii'))
         
-
+                
                 handle_one_client(client)
         except:
             break
