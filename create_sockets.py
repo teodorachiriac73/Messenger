@@ -1,5 +1,7 @@
 import ssl
 import socket
+# This file creates the sockets for the server and the client and wraps them in SSL context.
+
 
 def create_ssl_client_socket():
     

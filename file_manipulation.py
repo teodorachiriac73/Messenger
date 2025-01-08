@@ -4,7 +4,10 @@ import os
 import re
 
 def save_file(sender, receiver, file_name, file_data):
-    base_dir='photos'
+    """
+    This function saves a file in the 'clients' folder.
+    """
+    base_dir='clients'
     try:
         safe_file_name = re.sub(r'[<>:"/\\|?*]', '_', file_name)
         safe_receiver = re.sub(r'[<>:"/\\|?*]', '_', receiver)
@@ -22,7 +25,7 @@ def save_file(sender, receiver, file_name, file_data):
         return full_file_path
 
     except Exception as e:
-        print(f"Eroare la salvarea fișierului: {e}")
+        print(f"Eroare la salvarea fisierului: {e}")
         return None
 
 
@@ -39,18 +42,26 @@ def delete_client_folder():
     return
 
 
-def delete_photos_folder():
-    folder_path = f"photos"
+# def delete_photos_folder():
+#     """
+#     This function deletes the 'photos' folder and all its contents.
+#     """
 
-    if os.path.exists(folder_path):
-        shutil.rmtree(folder_path)
-        print(f"Folder deleted for all photos")
-    else:
-        print(f"Folder does not exist")
+#     folder_path = f"photos"
+
+#     if os.path.exists(folder_path):
+#         shutil.rmtree(folder_path)
+#         print(f"Folder deleted for all photos")
+#     else:
+#         print(f"Folder does not exist")
     
-    return
+#     return
 
 def create_client_folder(client_name):
+    """
+    This function creates a folder for the specified client name in the 'clients' folder.
+    """
+
     base_path = "clients"
     folder_path = os.path.join(base_path, client_name)
 
@@ -65,20 +76,13 @@ def create_client_folder(client_name):
     return folder_path
 
 
-# def create_file_for_photo(client_name):
-#     folder_path = f"server_folder_for_photos/{client_name}"
-
-#     if not os.path.exists(folder_path):
-#         os.makedirs(folder_path)
-#         print(f"File created")
-#     #else:
-#         #print(f"Folder already exists for {client_name}")
-    
-#     return folder_path
-
-
 
 def return_client_files(client_nickname):
+    """
+    This function checks if a folder exists for the specified client nickname.
+    If the folder exists, it lists all files in the folder and prints their contents.
+    If the folder does not exist, it prints a message indicating that there are no files for the client.
+    """
     folder_path = f"clients/{client_nickname}"
     
     if os.path.exists(folder_path):

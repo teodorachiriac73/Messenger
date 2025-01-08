@@ -5,13 +5,12 @@ import os
 import ssl
 import socket
 import base64
-from tkinter import filedialog,messagebox
+from tkinter import filedialog
 
-from logs import log_message_chatAll,log_private_message
-from file_manipulation import create_client_folder
+from log_functions import log_message_chatAll,log_private_message, open_logs
 from create_sockets import create_ssl_client_socket
 
-
+#Global variables
 stop_client = threading.Event()
 chat_window = None
 active_clients_frame = None
@@ -19,7 +18,7 @@ messages_display = None
 direct_message_windows_dictionary = {}  
 
 
-try:
+try:  # Create a SSL client socket
     client = create_ssl_client_socket()
     client.connect(('localhost', 1234))  
 except ssl.SSLError as e:
@@ -28,6 +27,11 @@ except ssl.SSLError as e:
 
 
 def send_file_to_user(sender_nickname, sender_client, receiver_client, file_path):
+    """
+    Function that sends a file to another client. 
+    We send chunks of 512 bites of data until there's no data to read from the server.
+    Then we send the message with 'done' at the end to signal the end of the file.
+    """
     try:
         with open(file_path, 'rb') as file:
         
@@ -48,6 +52,9 @@ def send_file_to_user(sender_nickname, sender_client, receiver_client, file_path
         print(f"Error sending file: {e}")
 
 def open_send_file_to_user(nickname,client, another_client):
+    """
+    Opens a file using 'filedialog' and sends it to another client.
+    """
     file_path=filedialog.askopenfilename(title="Select a file to send to {another_client}", filetypes=[("Image files", "*.png *.jpg *.jpeg *.gif")])
     if file_path:
         send_file_to_user(nickname,client, another_client, file_path)
@@ -56,15 +63,21 @@ def on_emoji_click(emoji_char, message_entry):
     message_entry.insert(tk.END, emoji_char)
 
 
-
-
 def display_message_in_direct_chat(messages_display, message):
+    """
+    Function that displays a message in the direct / private chat window.
+    """
     messages_display.config(state='normal')
     messages_display.insert(tk.END, message + '\n')
     messages_display.config(state='disabled')
     messages_display.see(tk.END)
 
 def on_client_click(client, another_client):
+    """
+    When there is a click on a client from the active clients list, a new window is created for direct messaging.
+    This window has a text box for messages, a list of emojis, 
+    an entry for sending messages and a button for sending files.
+    """
     if another_client not in direct_message_windows_dictionary:
         direct_message_window = tk.Toplevel(chat_window)
 
@@ -103,60 +116,41 @@ def on_client_click(client, another_client):
         emojis = ["🙂", "😊", "😂", "😎", "❤️", "👍", "😢", "😡"]
         for emoji in emojis:
             emoji_button = tk.Button(emoji_list, text=emoji, font=("Segoe UI Emoji", 14),
-                                 command=lambda e=emoji: on_emoji_click(e, message_entry))
+                                    command=lambda e=emoji: on_emoji_click(e, message_entry))
             emoji_button.pack(side=tk.LEFT, padx=5, pady=5)
+
         send_button = tk.Button(direct_message_window, text="Send", command=send_private_message)
         send_button.grid(row=3, column=0, padx=10, pady=5)
 
         send_file_button= tk.Button(direct_message_window, text="Send file", command=lambda: open_send_file_to_user(nickname,client, another_client)) 
         send_file_button.grid(row=3, column=1, padx=10, pady=5)
 
-        def close_direct_message_window():
+        def close_private_message_window():
+            # When closing a private message window, it is also removed from the dictionary
             del direct_message_windows_dictionary[another_client]
             direct_message_window.destroy()
 
-        direct_message_window.protocol("WM_DELETE_WINDOW", close_direct_message_window)
+        direct_message_window.protocol("WM_DELETE_WINDOW", close_private_message_window)
 
         # Save the window in the dictionary
         direct_message_windows_dictionary[another_client] = direct_message_window
     else:
         direct_message_windows_dictionary[another_client].lift()
 
-def open_logs(client_nickname):
-    folder_path = f"clients/{client_nickname}"
-
-    if os.path.exists(folder_path):
-        file_path = filedialog.askopenfilename(
-            initialdir=folder_path,  
-            title="Selecteaza un fisier de log",  
-            filetypes=(("Image files", "*.png;*.jpg;*.jpeg"), ("Text files", "*.txt"))
-
-        )
-
-        if file_path:
-            try:
-                with open(file_path, 'r', encoding='utf-8') as file:
-                    file_content = file.read()
-                    
-                messagebox.showinfo("Continut fisier", file_content)
-
-            except Exception as e:
-                messagebox.showerror("Eroare", f"Eroare la fisier.")
-        else:
-            print("Nu a fost selectat niciun fisier.")
-    else:
-        messagebox.showerror("Eroare", f"Folderul clientului {client_nickname} nu exista.")
 
 
 
 def send_msg_after_login(enter_msg_entry):
+    """
+    Function that sends a message to the server after the client logs in.
+    The entry for entering messages is deleted after sending the message.
+    """
     if not stop_client.is_set():
         message = enter_msg_entry.get()
         new_message = f'{nickname}: {message}'
         try:
             client.send(new_message.encode('utf-8'))
             
-            #log_message_chatAll(new_message,nickname)
             enter_msg_entry.delete(0, tk.END)
         except Exception as e:
             print(f"Error occurred at sending message after login: {e}")
@@ -165,6 +159,12 @@ def send_msg_after_login(enter_msg_entry):
 
 
 def open_chat_window():
+    """
+    This function creates the chat window after the client logs in.
+    There are 2 frames: one for active clients and one for the chat.
+    The active clients section has a button to see the logs.
+    The chat section has a text box for messages and an entry for sending messages.
+    """
     global active_clients_frame, chat_window, messages_display
 
     chat_window = tk.Tk()
@@ -203,18 +203,30 @@ def open_chat_window():
 
 
     def close_chat_window():
+        """
+        Closes the chat window and sends 'exit' to the server.
+        """
         client.send('exit'.encode('utf-8'))
         stop_client.set()
         chat_window.quit()
         chat_window.destroy()
         client.close()
 
+    #Define the protocol for closing the chat window and put chat_window in the main loop
     chat_window.protocol("WM_DELETE_WINDOW", close_chat_window)
     chat_window.mainloop()
 
 
 
 def receive_message_from_srv():
+    """
+    Function that receives message from server while client is running. 
+    Cases:
+    - from login: already connected, login failed, login successful
+    - server is closing
+    - tells the ui to actualize if the message is active users
+
+    """
     global active_clients_frame, chat_window, messages_display
 
     while not stop_client.is_set():
@@ -284,21 +296,11 @@ def receive_message_from_srv():
                 if sender in direct_message_windows_dictionary:
                     display_message_in_direct_chat(direct_message_windows_dictionary[sender].winfo_children()[0], f"{sender}: {message_content}")
                 else:
-                    # nu exista fereastra 
                     on_client_click(client,sender)
                     display_message_in_direct_chat(direct_message_windows_dictionary[sender].winfo_children()[0], f"{sender}: {message_content}")
-            # elif message.startswith("file:from:"):
-            #     parts = message.split(':')
-            #     from_client = parts[2]
-            #     file_name = parts[5]
-            #     file_content_encoded = parts[6]
-            #     file_content = base64.b64decode(file_content_encoded)
-            #     folder_path = create_client_folder(nickname)
-            #     with open(os.path.join(folder_path, file_name), 'wb') as file:
-            #         file.write(file_content)
+            
             else:
                 print(message)
-
                 def display_messages_common_chat(message):
                     messages_display.config(state='normal')
                     messages_display.insert(tk.END, message + '\n')
@@ -306,8 +308,6 @@ def receive_message_from_srv():
                     messages_display.see(tk.END)
 
                 tkWindow.after(0, lambda: display_messages_common_chat(message))
-                
-                #log_message_chatAll(message,nickname)
 
         except:
             if stop_client.is_set():
@@ -317,6 +317,9 @@ def receive_message_from_srv():
             break
 
 def login():
+    """
+    Login function that takes the nickname and password from input and sends them to server.
+    """
     global nickname, password
     nickname = nickname_entry.get()
     password = password_entry.get()
@@ -338,6 +341,9 @@ def login():
         return
 
 def close_app():
+    """
+    Closes login window and client socket.
+    """
     client.send('exit'.encode('utf-8'))
     stop_client.set()
     client.close()
@@ -347,7 +353,10 @@ def close_app():
 
 receive_thread = threading.Thread(target=receive_message_from_srv)
 receive_thread.start()
+ 
 
+
+# Basic GUI for introducing nickname and password
 
 tkWindow = tk.Tk()
 tkWindow.title('Messenger app')
