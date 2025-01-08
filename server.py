@@ -1,19 +1,10 @@
-
+import ssl
 import socket
 import threading
-
-from server_configuration import create_server
+import base64
 from file_manipulation import delete_client_folder,return_client_files
-import ssl
+from create_sockets import create_ssl_server_socket 
 
-def create_ssl_server_socket():
-    context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-    context.load_cert_chain(certfile="server_cert.pem", keyfile="server_key.pem")  
-
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind(('localhost', 1234))
-    server_socket.listen(5)
-    return context.wrap_socket(server_socket, server_side=True)
 
 server = create_ssl_server_socket() 
 
@@ -71,6 +62,25 @@ def handle_one_client(client):
                 
                 broadcast_message(f'one client has left')
                 break
+                
+            if message.startswith("file:from:"):
+                arguments = message.split(':')
+                sender = arguments[2]
+                receiver = arguments[4]
+                file_name = arguments[5]
+                if "done" in message:
+                    print(f"Fișierul {file_name} a fost primit complet.")
+                else:
+                    file_data_encoded = arguments[6]
+
+                    file_data = base64.b64decode(file_data_encoded)
+                    
+                    with open(file_name, 'ab') as file:
+                        file.write(file_data)
+                    
+                
+
+
             elif message.startswith("message:from:"):
                 from_client=message.split(':')[2]
                 to_client=message.split(':')[4]
@@ -78,7 +88,7 @@ def handle_one_client(client):
                 print(from_client,to_client,actual_message)
                 send_direct_message_to_user(from_client,to_client,message)
                 
-
+    
             else:
                 broadcast_message(message)
         except:

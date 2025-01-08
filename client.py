@@ -4,21 +4,41 @@ import tkinter as tk
 import os 
 import ssl
 import socket
-
+import base64
 from datetime import datetime
-from tkinter import PhotoImage
+from tkinter import filedialog
+
 from file_manipulation import create_client_folder
+from create_sockets import create_ssl_client_socket
+
+def send_file_to_user(sender_nickname, sender_client, receiver_client, file_path):
+    try:
+        with open(file_path, 'rb') as file:
+        
+            while True:
+                file_data=  file.read(512)
+                message=f'file:from:{sender_nickname}:to:{receiver_client}:{os.path.basename(file_path)}:{file_data}'
+                
+                if not file_data:
+                    message=f'file:from:{sender_nickname}:to:{receiver_client}:{os.path.basename(file_path)}:done'
+                    break
+
+                file_data_encoded = base64.b64encode(file_data).decode('utf-8')
+                
+                message = f'file:from:{sender_nickname}:to:{receiver_client}:{os.path.basename(file_path)}:{file_data_encoded}'
+                client.send(message.encode('utf-8'))
+
+    except Exception as e:
+        print(f"Error sending file: {e}")
+
+def open_send_file_to_user(nickname,client, another_client):
+    file_path=filedialog.askopenfilename(title="Select a file to send to {another_client}", filetypes=[("Image files", "*.png *.jpg *.jpeg *.gif")])
+    if file_path:
+        send_file_to_user(nickname,client, another_client, file_path)
 
 def on_emoji_click(emoji_char, message_entry):
     message_entry.insert(tk.END, emoji_char)
 
-def create_ssl_client_socket():
-    
-    context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
-    context.check_hostname = False  # dezactiveaza verificarea numelui de gazda 
-    context.verify_mode = ssl.CERT_NONE  # nu valideaza certificatul serverului
-    client_socket = context.wrap_socket(socket.socket(socket.AF_INET), server_hostname='localhost')
-    return client_socket
 
 try:
     client = create_ssl_client_socket()
@@ -63,6 +83,7 @@ def on_client_click(client, another_client):
         direct_message_window.grid_rowconfigure(0, weight=1)  # o coloana=messages display, care se poate extinde si 2 randuri 
         direct_message_window.grid_rowconfigure(1, weight=0) 
         direct_message_window.grid_rowconfigure(2, weight=0) 
+        direct_message_window.grid_rowconfigure(3, weight=0)
         direct_message_window.grid_columnconfigure(0, weight=1) 
         def send_private_message():
             message = message_entry.get()
@@ -87,7 +108,10 @@ def on_client_click(client, another_client):
                                  command=lambda e=emoji: on_emoji_click(e, message_entry))
             emoji_button.pack(side=tk.LEFT, padx=5, pady=5)
         send_button = tk.Button(direct_message_window, text="Send", command=send_private_message)
-        send_button.grid(row=3, column=0, padx=10, pady=5, sticky='ew')
+        send_button.grid(row=3, column=0, padx=10, pady=5)
+
+        send_file_button= tk.Button(direct_message_window, text="Send file", command=lambda: open_send_file_to_user(nickname,client, another_client)) 
+        send_file_button.grid(row=3, column=1, padx=10, pady=5)
 
         def close_direct_message_window():
             del direct_message_windows_dictionary[another_client]
@@ -132,7 +156,7 @@ def open_chat_window():
     chat_frame = tk.Frame(main_frame)
     chat_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-    messages_display = tk.Text(chat_frame, state='disabled', wrap='word')
+    messages_display = tk.Text(chat_frame, state='disabled', wrap='word',bg="#E1E0E0")
     messages_display.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
     send_message_frame = tk.Frame(chat_frame)
@@ -229,7 +253,15 @@ def receive_message_from_srv():
                     # nu exista fereastra 
                     on_client_click(client,sender)
                     display_message_in_direct_chat(direct_message_windows_dictionary[sender].winfo_children()[0], f"{sender}: {message_content}")
-
+            elif message.startswith("file:from:"):
+                parts = message.split(':')
+                from_client = parts[2]
+                file_name = parts[5]
+                file_content_encoded = parts[6]
+                file_content = base64.b64decode(file_content_encoded)
+                folder_path = create_client_folder(nickname)
+                with open(os.path.join(folder_path, file_name), 'wb') as file:
+                    file.write(file_content)
             else:
                 log_message(message)
                 print(message)
