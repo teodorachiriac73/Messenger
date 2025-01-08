@@ -1,8 +1,9 @@
 import ssl
 import socket
+import os 
 import threading
 import base64
-from file_manipulation import delete_client_folder,return_client_files
+from file_manipulation import delete_client_folder,return_client_files,delete_photos_folder,save_file
 from create_sockets import create_ssl_server_socket 
 
 
@@ -34,11 +35,12 @@ def write_command():
                 client.close()
             info_about_clients.clear()
             delete_client_folder()
+            delete_photos_folder()
             stop_server.set()
             server.close()
             return
         else:
-            print(clients)
+            #print(clients)
             active_clients=return_active_clients()
             active_clients_nickname = [user['nickname'] for user in active_clients if user['active']==True]
             if message in active_clients_nickname:
@@ -69,14 +71,12 @@ def handle_one_client(client):
                 receiver = arguments[4]
                 file_name = arguments[5]
                 if "done" in message:
-                    print(f"Fișierul {file_name} a fost primit complet.")
+                    print(f"Fisierul {file_name} a fost primit complet.")
                 else:
                     file_data_encoded = arguments[6]
 
                     file_data = base64.b64decode(file_data_encoded)
-                    
-                    with open(file_name, 'ab') as file:
-                        file.write(file_data)
+                    save_file(sender,receiver,file_name,file_data)
                     
                 
 
@@ -101,6 +101,8 @@ def broadcast_message(message):
                 one_client['client_socket'].send(message.encode('utf-8'))
             except:
                 print("eroare trimitere mesaj catre client",one_client)
+                one_client['active']=False
+                break
 
 
 def broadcast_active_users():
@@ -117,6 +119,7 @@ def send_direct_message_to_user(from_client,to_client,message):
                 one_client['client_socket'].send(f'{message}'.encode('utf-8'))
             except:
                 print("eroare trimitere mesaj catre client",one_client)
+                one_client['active']=False
                 break
             break
 

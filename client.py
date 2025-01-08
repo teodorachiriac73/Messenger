@@ -5,11 +5,27 @@ import os
 import ssl
 import socket
 import base64
-from datetime import datetime
-from tkinter import filedialog
+from tkinter import filedialog,messagebox
 
+from logs import log_message_chatAll,log_private_message
 from file_manipulation import create_client_folder
 from create_sockets import create_ssl_client_socket
+
+
+stop_client = threading.Event()
+chat_window = None
+active_clients_frame = None
+messages_display = None
+direct_message_windows_dictionary = {}  
+
+
+try:
+    client = create_ssl_client_socket()
+    client.connect(('localhost', 1234))  
+except ssl.SSLError as e:
+    print(f"SSL connection error: {e}")
+    client.close()
+
 
 def send_file_to_user(sender_nickname, sender_client, receiver_client, file_path):
     try:
@@ -40,27 +56,7 @@ def on_emoji_click(emoji_char, message_entry):
     message_entry.insert(tk.END, emoji_char)
 
 
-try:
-    client = create_ssl_client_socket()
-    client.connect(('localhost', 1234))  
-except ssl.SSLError as e:
-    print(f"SSL connection error: {e}")
-    client.close()
 
-
-def log_message(message):
-    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    folder_path = create_client_folder(nickname)
-    with open(os.path.join(folder_path, f"{nickname}.txt"), 'a') as file:
-        file.write(f"[{timestamp}] {message}\n")
-
-
-
-stop_client = threading.Event()
-chat_window = None
-active_clients_frame = None
-messages_display = None
-direct_message_windows_dictionary = {}  
 
 def display_message_in_direct_chat(messages_display, message):
     messages_display.config(state='normal')
@@ -91,8 +87,10 @@ def on_client_click(client, another_client):
                 command = f"message:from:{nickname}:to:{another_client}:{message.strip()}"
                 try:
                     client.send(command.encode('utf-8'))
+                    log_private_message(message,nickname, another_client)
                     display_message_in_direct_chat(messages_display, f"You: {message.strip()}")
                 except Exception as e:
+                    log_private_message(message,nickname, another_client)
                     display_message_in_direct_chat(messages_display, "Error: Failed to send message.")
                 message_entry.delete(0, tk.END)
 
@@ -124,17 +122,47 @@ def on_client_click(client, another_client):
     else:
         direct_message_windows_dictionary[another_client].lift()
 
+def open_logs(client_nickname):
+    folder_path = f"clients/{client_nickname}"
+
+    if os.path.exists(folder_path):
+        file_path = filedialog.askopenfilename(
+            initialdir=folder_path,  
+            title="Selecteaza un fisier de log",  
+            filetypes=(("Image files", "*.png;*.jpg;*.jpeg"), ("Text files", "*.txt"))
+
+        )
+
+        if file_path:
+            try:
+                with open(file_path, 'r', encoding='utf-8') as file:
+                    file_content = file.read()
+                    
+                messagebox.showinfo("Continut fisier", file_content)
+
+            except Exception as e:
+                messagebox.showerror("Eroare", f"Eroare la fisier.")
+        else:
+            print("Nu a fost selectat niciun fisier.")
+    else:
+        messagebox.showerror("Eroare", f"Folderul clientului {client_nickname} nu exista.")
+
+
+
 def send_msg_after_login(enter_msg_entry):
     if not stop_client.is_set():
         message = enter_msg_entry.get()
         new_message = f'{nickname}: {message}'
         try:
             client.send(new_message.encode('utf-8'))
+            
+            #log_message_chatAll(new_message,nickname)
             enter_msg_entry.delete(0, tk.END)
         except Exception as e:
             print(f"Error occurred at sending message after login: {e}")
             client.close()
             stop_client.set()
+
 
 def open_chat_window():
     global active_clients_frame, chat_window, messages_display
@@ -151,7 +179,9 @@ def open_chat_window():
     active_clients_label = tk.Label(active_clients_frame, text='Message active clients:', bg="#5D7257", fg='darkblue')
     active_clients_label.pack(side=tk.TOP, padx=10, pady=5)
     active_clients_frame.pack(side=tk.RIGHT, fill=tk.Y, expand=False)
-
+    
+    open_logs_button = tk.Button(active_clients_frame, text='See your logs', command=lambda: open_logs(nickname), fg='black')
+    open_logs_button.pack(side=tk.BOTTOM, padx=10, pady=5)
     # chat - in partea stanga
     chat_frame = tk.Frame(main_frame)
     chat_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -170,6 +200,7 @@ def open_chat_window():
     send_message_button.grid(row=0, column=1, padx=5)
 
     send_message_frame.grid_columnconfigure(0, weight=1)
+
 
     def close_chat_window():
         client.send('exit'.encode('utf-8'))
@@ -232,7 +263,8 @@ def receive_message_from_srv():
                 def update_active_clients():
                     for widget in active_clients_frame.winfo_children():
                         widget.destroy()
-
+                    open_logs_button = tk.Button(active_clients_frame, text='See your logs', command=lambda: open_logs(nickname), fg='black')
+                    open_logs_button.pack(side=tk.BOTTOM, padx=10, pady=5)
                     tk.Label(active_clients_frame, text='Message active clients:', bg="#5D7257", fg='darkblue').pack(anchor="w", padx=10, pady=5)
                     for user_to_message in active_users_list:
                         user_label = tk.Label(active_clients_frame, text=user_to_message.strip(), bg="#5D7257", fg='darkblue')
@@ -247,23 +279,24 @@ def receive_message_from_srv():
                 sender = parts[2]  
                 message_content = ':'.join(parts[5:])  
 
+                log_private_message(f'from {sender}:{message_content}',nickname,sender)
+
                 if sender in direct_message_windows_dictionary:
                     display_message_in_direct_chat(direct_message_windows_dictionary[sender].winfo_children()[0], f"{sender}: {message_content}")
                 else:
                     # nu exista fereastra 
                     on_client_click(client,sender)
                     display_message_in_direct_chat(direct_message_windows_dictionary[sender].winfo_children()[0], f"{sender}: {message_content}")
-            elif message.startswith("file:from:"):
-                parts = message.split(':')
-                from_client = parts[2]
-                file_name = parts[5]
-                file_content_encoded = parts[6]
-                file_content = base64.b64decode(file_content_encoded)
-                folder_path = create_client_folder(nickname)
-                with open(os.path.join(folder_path, file_name), 'wb') as file:
-                    file.write(file_content)
+            # elif message.startswith("file:from:"):
+            #     parts = message.split(':')
+            #     from_client = parts[2]
+            #     file_name = parts[5]
+            #     file_content_encoded = parts[6]
+            #     file_content = base64.b64decode(file_content_encoded)
+            #     folder_path = create_client_folder(nickname)
+            #     with open(os.path.join(folder_path, file_name), 'wb') as file:
+            #         file.write(file_content)
             else:
-                log_message(message)
                 print(message)
 
                 def display_messages_common_chat(message):
@@ -273,6 +306,8 @@ def receive_message_from_srv():
                     messages_display.see(tk.END)
 
                 tkWindow.after(0, lambda: display_messages_common_chat(message))
+                
+                #log_message_chatAll(message,nickname)
 
         except:
             if stop_client.is_set():
